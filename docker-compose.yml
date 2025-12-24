@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16
+    container_name: tarkovhelper-db
+    environment:
+      POSTGRES_DB: tarkovhelper
+      POSTGRES_USER: tarkovhelper
+      POSTGRES_PASSWORD: tarkovhelper
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tarkovhelper -d tarkovhelper"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: .
+    container_name: tarkovhelper-api
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    name: tarkovhelper_pgdata

@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS tracked_items;
+DROP TABLE IF EXISTS users;
