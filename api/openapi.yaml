@@ -1,0 +1,362 @@
+openapi: 3.0.3
+info:
+  title: TarkovHelper API
+  version: 1.0.0
+  description: |
+    Minimal API contract for auth + tracked items sync.
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: http://localhost:8080
+    description: Local dev
+
+tags:
+  - name: Auth
+  - name: User
+  - name: Tracked
+
+security:
+  - bearerAuth: [ ]
+
+paths:
+  /auth/register:
+    post:
+      tags: [ Auth ]
+      summary: Register new user and return token
+      security: [ ] # public
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            examples:
+              example:
+                value:
+                  email: user@mail.com
+                  password: secret12345
+                  name: Singularity
+      responses:
+        "200":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /auth/login:
+    post:
+      tags: [ Auth ]
+      summary: Login and return token
+      security: [ ] # public
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            examples:
+              example:
+                value:
+                  email: user@mail.com
+                  password: secret12345
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /me:
+    get:
+      tags: [ User ]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /tracked:
+    get:
+      tags: [ Tracked ]
+      summary: Get tracked items for mode
+      parameters:
+        - $ref: "#/components/parameters/ModeParam"
+      responses:
+        "200":
+          description: Tracked list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetTrackedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    put:
+      tags: [ Tracked ]
+      summary: Replace tracked items for mode (full overwrite)
+      parameters:
+        - $ref: "#/components/parameters/ModeParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PutTrackedRequest"
+            examples:
+              example:
+                value:
+                  items:
+                    - id: "5c94bbff86f7747ee735c08f"
+                      iconLink: "https://assets.tarkov.dev/5c94bbff86f7747ee735c08f-icon.webp"
+                      updatedAt: 1735071400000
+                    - id: "59faff1d86f7746c51718c9c"
+                      iconLink: null
+                      updatedAt: 1735071200000
+      responses:
+        "200":
+          description: Saved and returned resulting list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PutTrackedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ModeParam:
+      name: mode
+      in: query
+      required: true
+      schema:
+        $ref: "#/components/schemas/Mode"
+      description: Game mode namespace for tracked list.
+
+  responses:
+    BadRequest:
+      description: Bad request / validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            example:
+              value:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Invalid request
+
+    Unauthorized:
+      description: Missing/invalid token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            example:
+              value:
+                error:
+                  code: UNAUTHORIZED
+                  message: Invalid or missing token
+
+    Conflict:
+      description: Conflict (e.g. email taken)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            example:
+              value:
+                error:
+                  code: EMAIL_TAKEN
+                  message: Email already registered
+
+    ServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            example:
+              value:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Something went wrong
+
+  schemas:
+    Mode:
+      type: string
+      enum: [ pvp, pve ]
+      example: pvp
+
+    User:
+      type: object
+      additionalProperties: false
+      required: [ id, email, name ]
+      properties:
+        id:
+          type: string
+          example: u_123
+        email:
+          type: string
+          format: email
+          example: user@mail.com
+        name:
+          type: string
+          example: Singularity
+        avatarUrl:
+          type: string
+          nullable: true
+          example: null
+
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [ email, password, name ]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+          example: secret12345
+        name:
+          type: string
+          minLength: 1
+          example: Singularity
+
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [ email, password ]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+          example: secret12345
+
+    AuthResponse:
+      type: object
+      additionalProperties: false
+      required: [ token, user ]
+      properties:
+        token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJIUzI1NiIs...
+        user:
+          $ref: "#/components/schemas/User"
+
+    MeResponse:
+      type: object
+      additionalProperties: false
+      required: [ user ]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+
+    TrackedItem:
+      type: object
+      additionalProperties: false
+      required: [ id, iconLink, updatedAt ]
+      properties:
+        id:
+          type: string
+          example: 5c94bbff86f7747ee735c08f
+        iconLink:
+          type: string
+          nullable: true
+          example: https://assets.tarkov.dev/5c94bbff86f7747ee735c08f-icon.webp
+        updatedAt:
+          type: integer
+          format: int64
+          description: Unix epoch millis
+          example: 1735071400000
+
+    GetTrackedResponse:
+      type: object
+      additionalProperties: false
+      required: [ items ]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackedItem"
+
+    PutTrackedRequest:
+      type: object
+      additionalProperties: false
+      required: [ items ]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackedItem"
+
+    PutTrackedResponse:
+      type: object
+      additionalProperties: false
+      required: [ items ]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackedItem"
+
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [ error ]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [ code, message ]
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid request
